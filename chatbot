@@ -1,0 +1,45 @@
+import os
+from google import genai
+from google.genai import types
+from google.colab import userdata
+
+# 1. حل مشكلة الحروف العربية
+os.environ["PYTHONIOENCODING"] = "utf-8"
+
+# 2. جلب المفتاح بأمان
+api_key = userdata.get('GEMINI_API_KEY').strip().split()[0]
+client = genai.Client(api_key=api_key)
+
+# قائمة النماذج للاحتياط
+models_to_try = ["gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"]
+
+print("🤖 مرحباً! أنا مساعدك الذكي. اكتب 'خروج' للإنهاء.")
+history = []
+
+while True:
+    user_input = input("\nأنت: ")
+    
+    if user_input == "خروج" or user_input == "exit":
+        print("🤖: إلى اللقاء! 👋")
+        break
+        
+    response_text = None
+    
+    for model_name in models_to_try:
+        try:
+            chat = client.chats.create(model=model_name, history=history)
+            response = chat.send_message(user_input)
+            response_text = response.text
+            print(f"🤖 [{model_name}]:", response_text)
+            break
+        except Exception as e:
+            if "503" in str(e) or "UNAVAILABLE" in str(e):
+                print(f"⏳ النموذج {model_name} مشغول، جاري التحويل...")
+            else:
+                print(f"❌ خطأ في {model_name}: {e}")
+                
+    if response_text:
+        history.append(types.Content(role="user", parts=[types.Part(text=user_input)]))
+        history.append(types.Content(role="model", parts=[types.Part(text=response_text)]))
+    else:
+        print("⚠️ عذراً، جميع النماذج مشغولة جداً حالياً.")
